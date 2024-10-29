@@ -14,6 +14,7 @@ const FlightBookingForm = () => {
   });
   const [originList, setOriginList] = useState([]);
   const [destList, setDestList] = useState([]);
+  const [errMsg, setErrMsg] = useState(null);
   const modalRef = useRef(null);
 
   const handleClickOutside = (event) => {
@@ -30,9 +31,44 @@ const FlightBookingForm = () => {
     };
   }, []);
 
+  const isValidated = () => {
+    if (!origin) {
+      setErrMsg("Origin must be filled!");
+      return false;
+    }
+
+    if (!destination) {
+      setErrMsg("Destination must be filled!");
+      return false;
+    }
+
+    if (tripType.name == "one-way") {
+      const today = new Date();
+      if (departureDate == "") {
+        setErrMsg("Departure Date must be selected!");
+        return false;
+      }else if(today > new Date(departureDate)){
+        setErrMsg("Departure Date must be equal or greater than today's!");
+        return false;
+      }
+    } else {
+      if (returnDate == "") {
+        setErrMsg("Return Date must be selected!");
+        return false;
+      }else if(new Date(departureDate) > new Date(returnDate)){
+        setErrMsg("Date is not in order!")
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle form submission logic here (e.g., API call, data processing)
+
+    if (isValidated()) alert("submitted");
+
     console.log("Form submitted:", {
       tripType,
       origin,
@@ -42,6 +78,8 @@ const FlightBookingForm = () => {
       passengers,
       travelClass,
     });
+
+    if (!origin || !destination) return;
 
     // https://www.makemytrip.com/flight/search?itinerary=BOM-PNQ-31/10/2024_PNQ-BOM-15/11/2024&tripType=R&paxType=A-1_C-0_I-0&intl=false&cabinClass=E&ccde=IN&lang=eng
   };
@@ -353,7 +391,7 @@ const FlightBookingForm = () => {
             required
           />
         </div>
-        {tripType === "round-trip" && (
+        {tripType.name === "round-trip" && (
           <div className="w-1/2">
             <label htmlFor="returnDate" className="block mb-2">
               Return Date:
