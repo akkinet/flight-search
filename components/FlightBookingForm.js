@@ -2,13 +2,16 @@
 import React, { useState, useRef, useEffect } from "react";
 
 const FlightBookingForm = () => {
-  const [tripType, setTripType] = useState("one-way"); // Default to one-way
+  const [tripType, setTripType] = useState({ name: "one-way", code: "O" }); // Default to one-way
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [departureDate, setDepartureDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [passengers, setPassengers] = useState(1);
-  const [travelClass, setTravelClass] = useState("economy");
+  const [travelClass, setTravelClass] = useState({
+    name: "economy",
+    code: "E",
+  });
   const [originList, setOriginList] = useState([]);
   const [destList, setDestList] = useState([]);
   const modalRef = useRef(null);
@@ -61,20 +64,38 @@ const FlightBookingForm = () => {
     );
     const list = await res.json();
     if (key == "origin") {
-      setOrigin({name: value, code: ""});
+      setOrigin({ name: value, code: "" });
       if (list.results) setOriginList(list.results.SUGGESTIONS.data);
     } else {
-      setDestination({name: value, code: ""});
+      setDestination({ name: value, code: "" });
       if (list.results) setDestList(list.results.SUGGESTIONS.data);
     }
   };
 
   const selectPosition = (which, name, code) => {
-    if(which == "origin")
-      setOrigin({name, code})
-    else
-      setDestination({name, code})
-  }
+    if (which == "origin") setOrigin({ name, code });
+    else setDestination({ name, code });
+  };
+
+  const tripTypeSelector = (value) => {
+    const hash = {
+      "one-way": "O",
+      "round-trip": "R",
+    };
+
+    setTripType({ name: value, code: hash[value] });
+  };
+
+  const classSelector = (value) => {
+    const hash = {
+      economy: "E",
+      premium_economy: "PE",
+      business: "B",
+      first: "F",
+    };
+
+    setTravelClass({ name: value, code: hash[value] });
+  };
 
   return (
     <form onSubmit={handleSubmit} className="container mx-auto p-8">
@@ -91,8 +112,8 @@ const FlightBookingForm = () => {
               type="radio"
               id="oneWay"
               value="one-way"
-              checked={tripType === "one-way"}
-              onChange={(e) => setTripType(e.target.value)}
+              checked={tripType.name === "one-way"}
+              onChange={(e) => tripTypeSelector(e.target.value)}
               className="form-radio"
             />
             <span className="ml-2">One-way</span>
@@ -102,8 +123,8 @@ const FlightBookingForm = () => {
               type="radio"
               id="roundTrip"
               value="round-trip"
-              checked={tripType === "round-trip"}
-              onChange={(e) => setTripType(e.target.value)}
+              checked={tripType.name === "round-trip"}
+              onChange={(e) => tripTypeSelector(e.target.value)}
               className="form-radio"
             />
             <span className="ml-2">Round-trip</span>
@@ -134,7 +155,14 @@ const FlightBookingForm = () => {
               {originList.map((suggestion) => (
                 <li
                   key={suggestion.iata}
-                  onClick={() => selectPosition("origin", suggestion.cityName, suggestion.iata)}
+                  onClick={() => {
+                    selectPosition(
+                      "origin",
+                      suggestion.cityName,
+                      suggestion.iata
+                    );
+                    setOriginList([]);
+                  }}
                   className="px-3 py-2 cursor-pointer hover:bg-gray-100 group" // Added group class
                 >
                   <div className="flex items-center">
@@ -171,7 +199,12 @@ const FlightBookingForm = () => {
                                 key={airport.iata}
                                 onClick={(event) => {
                                   event.stopPropagation(); // Prevent event bubbling
-                                  selectPosition("origin", airport.cityName, airport.iata)
+                                  selectPosition(
+                                    "origin",
+                                    airport.cityName,
+                                    airport.iata
+                                  );
+                                  setOriginList([]);
                                 }}
                                 className="flex items-center text-sm text-gray-500"
                               >
@@ -183,11 +216,11 @@ const FlightBookingForm = () => {
                                         alt="icon"
                                         className="w-3 h-3 inline-block" // Smaller icon size
                                       />
-                                      <span className="ml-2">{airport.airportName}</span>
+                                      <span className="ml-2">
+                                        {airport.airportName}
+                                      </span>
                                     </span>
-                                    <span>
-                                      ({airport.iata})
-                                    </span>
+                                    <span>({airport.iata})</span>
                                   </div>
                                   <div>{airport.distanceInfoText}</div>
                                 </div>
@@ -223,7 +256,14 @@ const FlightBookingForm = () => {
               {destList.map((suggestion) => (
                 <li
                   key={suggestion.iata}
-                  onClick={() => selectPosition("dest", suggestion.cityName, suggestion.iata)}
+                  onClick={() => {
+                    selectPosition(
+                      "dest",
+                      suggestion.cityName,
+                      suggestion.iata
+                    );
+                    setDestList([]);
+                  }}
                   className="px-3 py-2 cursor-pointer hover:bg-gray-100 group" // Added group class
                 >
                   <div className="flex items-center">
@@ -260,7 +300,12 @@ const FlightBookingForm = () => {
                                 key={airport.iata}
                                 onClick={(event) => {
                                   event.stopPropagation(); // Prevent event bubbling
-                                  selectPosition("dest", airport.cityName, airport.iata)
+                                  selectPosition(
+                                    "dest",
+                                    airport.cityName,
+                                    airport.iata
+                                  );
+                                  setDestList([]);
                                 }}
                                 className="flex items-center text-sm text-gray-500"
                               >
@@ -272,11 +317,11 @@ const FlightBookingForm = () => {
                                         alt="icon"
                                         className="w-3 h-3 inline-block" // Smaller icon size
                                       />
-                                      <span className="ml-2">{airport.airportName}</span>
+                                      <span className="ml-2">
+                                        {airport.airportName}
+                                      </span>
                                     </span>
-                                    <span>
-                                      ({airport.iata})
-                                    </span>
+                                    <span>({airport.iata})</span>
                                   </div>
                                   <div>{airport.distanceInfoText}</div>
                                 </div>
@@ -350,8 +395,8 @@ const FlightBookingForm = () => {
           </label>
           <select
             id="travelClass"
-            value={travelClass}
-            onChange={(e) => setTravelClass(e.target.value)}
+            value={travelClass.name}
+            onChange={(e) => classSelector(e.target.value)}
             className="border border-gray-400 px-3 py-2 rounded w-full"
           >
             <option value="economy">Economy</option>
