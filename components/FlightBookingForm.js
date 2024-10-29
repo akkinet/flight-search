@@ -1,19 +1,36 @@
-'use client'
-import React, { useState } from 'react';
+"use client";
+import React, { useState, useRef, useEffect } from "react";
 
 const FlightBookingForm = () => {
-  const [tripType, setTripType] = useState('one-way'); // Default to one-way
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [departureDate, setDepartureDate] = useState('');
-  const [returnDate, setReturnDate] = useState('');
+  const [tripType, setTripType] = useState("one-way"); // Default to one-way
+  const [origin, setOrigin] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [departureDate, setDepartureDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
   const [passengers, setPassengers] = useState(1);
-  const [travelClass, setTravelClass] = useState('economy');
+  const [travelClass, setTravelClass] = useState("economy");
+  const [originList, setOriginList] = useState([]);
+  const [destList, setDestList] = useState([]);
+  const modalRef = useRef(null);
+
+  const handleClickOutside = (event) => {
+    if (modalRef.current && !modalRef.current.contains(event.target)) {
+      setOriginList([]);
+      setDestList([]);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     // Handle form submission logic here (e.g., API call, data processing)
-    console.log('Form submitted:', {
+    console.log("Form submitted:", {
       tripType,
       origin,
       destination,
@@ -22,7 +39,42 @@ const FlightBookingForm = () => {
       passengers,
       travelClass,
     });
+
+    // https://www.makemytrip.com/flight/search?itinerary=BOM-PNQ-31/10/2024_PNQ-BOM-15/11/2024&tripType=R&paxType=A-1_C-0_I-0&intl=false&cabinClass=E&ccde=IN&lang=eng
   };
+
+  const placeHandler = async (key, value) => {
+    const res = await fetch(
+      `https://flights-cb.makemytrip.com/api/flights-search/autosuggest?limit=15&matchCity=true&query=${value}&region=in&language=eng&currency=inr`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Mcid: process.env.DEVICE_ID,
+          Os: "DESKTOP",
+          "app-ver": "1.0.0",
+          "device-id": process.env.DEVICE_ID,
+          Pfm: "DESKTOP",
+          Src: "src",
+        },
+      }
+    );
+    const list = await res.json();
+    if (key == "origin") {
+      setOrigin({name: value, code: ""});
+      if (list.results) setOriginList(list.results.SUGGESTIONS.data);
+    } else {
+      setDestination({name: value, code: ""});
+      if (list.results) setDestList(list.results.SUGGESTIONS.data);
+    }
+  };
+
+  const selectPosition = (which, name, code) => {
+    if(which == "origin")
+      setOrigin({name, code})
+    else
+      setDestination({name, code})
+  }
 
   return (
     <form onSubmit={handleSubmit} className="container mx-auto p-8">
@@ -39,7 +91,7 @@ const FlightBookingForm = () => {
               type="radio"
               id="oneWay"
               value="one-way"
-              checked={tripType === 'one-way'}
+              checked={tripType === "one-way"}
               onChange={(e) => setTripType(e.target.value)}
               className="form-radio"
             />
@@ -50,7 +102,7 @@ const FlightBookingForm = () => {
               type="radio"
               id="roundTrip"
               value="round-trip"
-              checked={tripType === 'round-trip'}
+              checked={tripType === "round-trip"}
               onChange={(e) => setTripType(e.target.value)}
               className="form-radio"
             />
@@ -68,12 +120,87 @@ const FlightBookingForm = () => {
           <input
             type="text"
             id="origin"
-            value={origin}
-            onChange={(e) => setOrigin(e.target.value)}
+            value={origin?.name ?? ""}
+            onChange={(e) => placeHandler("origin", e.target.value)}
             className="border border-gray-400 px-3 py-2 rounded w-full"
             placeholder="Enter origin city"
             required
           />
+          {originList.length > 0 && (
+            <ul
+              ref={modalRef}
+              className="absolute z-10 bg-white border border-gray-300 rounded-md shadow-md w-35 mt-1 overflow-y-auto max-h-60" // Added overflow and max height
+            >
+              {originList.map((suggestion) => (
+                <li
+                  key={suggestion.iata}
+                  onClick={() => selectPosition("origin", suggestion.cityName, suggestion.iata)}
+                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 group" // Added group class
+                >
+                  <div className="flex items-center">
+                    <img
+                      src="https://imgak.mmtcdn.com/flights/assets/media/dt/common/icons/ic-flight-onward.png"
+                      alt="icon"
+                      className="w-4 h-4" // Added icon size
+                    />
+                    <span className="ml-2 font-medium text-gray-800 group-hover:text-blue-500">
+                      {" "}
+                      {/* Added hover effect */}
+                      {suggestion.cityName}
+                    </span>
+                    <span className="ml-auto text-gray-500 group-hover:text-blue-500">
+                      {" "}
+                      {/* Added hover effect */}({suggestion.iata})
+                    </span>
+                  </div>
+                  {suggestion.airportName && (
+                    <div className="text-sm text-gray-500 mt-1">
+                      {suggestion.airportName}
+                    </div>
+                  )}
+                  {suggestion.extraData && (
+                    <div className="text-xs ml-4 text-yellow-500 mt-1">
+                      {suggestion.extraData.tag.nearbyHeader.slice(22, 61)}
+                      {suggestion.groupData &&
+                        suggestion.groupData.length > 0 && (
+                          <ul className="mt-1">
+                            {" "}
+                            {/* Changed to an unordered list */}
+                            {suggestion.groupData.map((airport) => (
+                              <li
+                                key={airport.iata}
+                                onClick={(event) => {
+                                  event.stopPropagation(); // Prevent event bubbling
+                                  selectPosition("origin", airport.cityName, airport.iata)
+                                }}
+                                className="flex items-center text-sm text-gray-500"
+                              >
+                                <div className="flex flex-col w-full mb-2">
+                                  <div className="flex flex-row justify-between">
+                                    <span>
+                                      <img
+                                        src="https://imgak.mmtcdn.com/flights/assets/media/dt/common/icons/ic-flight-onward.png"
+                                        alt="icon"
+                                        className="w-3 h-3 inline-block" // Smaller icon size
+                                      />
+                                      <span className="ml-2">{airport.airportName}</span>
+                                    </span>
+                                    <span>
+                                      ({airport.iata})
+                                    </span>
+                                  </div>
+                                  <div>{airport.distanceInfoText}</div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="w-1/2">
           <label htmlFor="destination" className="block mb-2">
@@ -82,12 +209,87 @@ const FlightBookingForm = () => {
           <input
             type="text"
             id="destination"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
+            value={destination?.name ?? ""}
+            onChange={(e) => placeHandler("dest", e.target.value)}
             className="border border-gray-400 px-3 py-2 rounded w-full"
             placeholder="Enter destination city"
             required
           />
+          {destList.length > 0 && (
+            <ul
+              ref={modalRef}
+              className="absolute z-10 bg-white border border-gray-300 rounded-md shadow-md w-35 mt-1 overflow-y-auto max-h-60" // Added overflow and max height
+            >
+              {destList.map((suggestion) => (
+                <li
+                  key={suggestion.iata}
+                  onClick={() => selectPosition("dest", suggestion.cityName, suggestion.iata)}
+                  className="px-3 py-2 cursor-pointer hover:bg-gray-100 group" // Added group class
+                >
+                  <div className="flex items-center">
+                    <img
+                      src="https://imgak.mmtcdn.com/flights/assets/media/dt/common/icons/ic-flight-onward.png"
+                      alt="icon"
+                      className="w-4 h-4" // Added icon size
+                    />
+                    <span className="ml-2 font-medium text-gray-800 group-hover:text-blue-500">
+                      {" "}
+                      {/* Added hover effect */}
+                      {suggestion.cityName}
+                    </span>
+                    <span className="ml-auto text-gray-500 group-hover:text-blue-500">
+                      {" "}
+                      {/* Added hover effect */}({suggestion.iata})
+                    </span>
+                  </div>
+                  {suggestion.airportName && (
+                    <div className="text-sm text-gray-500 mt-1">
+                      {suggestion.airportName}
+                    </div>
+                  )}
+                  {suggestion.extraData && (
+                    <div className="text-xs ml-4 text-yellow-500 mt-1">
+                      {suggestion.extraData.tag.nearbyHeader.slice(22, 61)}
+                      {suggestion.groupData &&
+                        suggestion.groupData.length > 0 && (
+                          <ul className="mt-1">
+                            {" "}
+                            {/* Changed to an unordered list */}
+                            {suggestion.groupData.map((airport) => (
+                              <li
+                                key={airport.iata}
+                                onClick={(event) => {
+                                  event.stopPropagation(); // Prevent event bubbling
+                                  selectPosition("dest", airport.cityName, airport.iata)
+                                }}
+                                className="flex items-center text-sm text-gray-500"
+                              >
+                                <div className="flex flex-col w-full mb-2">
+                                  <div className="flex flex-row justify-between">
+                                    <span>
+                                      <img
+                                        src="https://imgak.mmtcdn.com/flights/assets/media/dt/common/icons/ic-flight-onward.png"
+                                        alt="icon"
+                                        className="w-3 h-3 inline-block" // Smaller icon size
+                                      />
+                                      <span className="ml-2">{airport.airportName}</span>
+                                    </span>
+                                    <span>
+                                      ({airport.iata})
+                                    </span>
+                                  </div>
+                                  <div>{airport.distanceInfoText}</div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -106,7 +308,7 @@ const FlightBookingForm = () => {
             required
           />
         </div>
-        {tripType === 'round-trip' && (
+        {tripType === "round-trip" && (
           <div className="w-1/2">
             <label htmlFor="returnDate" className="block mb-2">
               Return Date:
